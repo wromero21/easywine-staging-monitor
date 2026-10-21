@@ -1,0 +1,68 @@
+name: Bounded Staging availability pilot
+
+on:
+  schedule:
+    - cron: '2-59/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      operation:
+        description: 'Sample; create the one pilot epoch; or record an explicit human receipt'
+        type: choice
+        options: [sample, bootstrap, receipt]
+        default: sample
+      confirmation:
+        description: 'Bootstrap: BEGIN_7_DAY_PUBLIC_STAGING_PILOT; receipt: HUMAN_RECEIPT_CONFIRMED'
+        type: string
+        required: false
+      notification_id:
+        description: 'Receipt only: exact notification ID from the successful state commit'
+        type: string
+        required: false
+      receipt_kind:
+        description: 'Receipt only: opening email or visible recovery summary'
+        type: choice
+        options: [opening-email, recovery-summary]
+        default: opening-email
+
+# Only the proposed isolated operational repository may run this workflow.
+# Future approval first sets MONITOR_PILOT_APPROVED=bootstrap-only, then true
+# only after the create-only bootstrap has succeeded. Schedules cannot sample
+# an uninitialized state during bootstrap-only mode.
+permissions:
+  contents: write
+  actions: read
+
+concurrency:
+  group: easywine-staging-seven-day-pilot
+  cancel-in-progress: false
+
+jobs:
+  monitor:
+    if: github.repository == 'wromero21/easywine-staging-monitor' && (vars.MONITOR_PILOT_APPROVED == 'true' || (vars.MONITOR_PILOT_APPROVED == 'bootstrap-only' && github.event_name == 'workflow_dispatch' && inputs.operation == 'bootstrap'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Read approved operational source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+      - name: Use the reviewed Node runtime
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: '24.14.0'
+          package-manager-cache: false
+      - name: Apply one bounded operation
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          MONITOR_PILOT_APPROVED: ${{ vars.MONITOR_PILOT_APPROVED }}
+          MONITOR_OPERATION: ${{ inputs.operation || 'sample' }}
+          MONITOR_CONFIRMATION: ${{ inputs.confirmation }}
+          MONITOR_NOTIFICATION_ID: ${{ inputs.notification_id }}
+          MONITOR_RECEIPT_KIND: ${{ inputs.receipt_kind }}
+        run: node host-once.mjs --approved-hosted-pilot
+
+# A committed incident opening intentionally fails this job once. State and
+# infrastructure errors truthfully fail too and may generate repeated native
+# failure emails. Recovery and terminal pilot expiry never fake a failure.
+# Email delivery is unconfirmed until the owner supplies an explicit receipt.

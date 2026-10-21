@@ -1,0 +1,27 @@
+{
+  "schema": "easywine.staging.hosted-pilot-policy.v1",
+  "repository": "wromero21/easywine-staging-monitor",
+  "visibility": "public",
+  "stateBranch": "monitor-state",
+  "pilotId": "easywine-staging-public-pilot-v1",
+  "activationGate": "After explicit approval: bootstrap-only permits only manual bootstrap; true permits scheduled samples after bootstrap succeeds",
+  "epoch": "One create-only manual bootstrap; fixed seven-day deadline; no automatic reset",
+  "maximumRounds": 2016,
+  "maximumGetReservations": 4032,
+  "scheduleUtc": "2-59/5 * * * *",
+  "runner": "ubuntu-24.04",
+  "node": "24.14.0",
+  "targets": [
+    "https://easywine-staging.pages.dev/",
+    "https://easywine-staging.pages.dev/api/health"
+  ],
+  "requestPolicy": { "method": "GET", "credentials": "omit", "redirect": "manual", "retries": 0, "timeoutMsPerTarget": 10000 },
+  "repositoryTokenPermissions": { "contents": "write", "actions": "read" },
+  "canonicalState": "State branch with CAS reservation before collection and CAS checkpoint after collection",
+  "nativeOpeningNotification": "One failed-job intent for each new incident; delivery requires explicit human receipt",
+  "infrastructureFailure": "BLOCKED and failed job, possibly repeated native failure emails",
+  "recovery": "Successful job summary; explicit human recovery-summary receipt; no forced failure",
+  "independentAbsenceWatcher": "not implemented",
+  "applicationCodeIncluded": false,
+  "credentialsOrPersonalDataIncluded": false
+}
